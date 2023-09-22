@@ -70,7 +70,7 @@ df_s <- df_s %>%
   select(training, states) %>% 
   na.omit() %>% 
   group_by(training, states) %>% 
-  summarise(n_each_course_state = n())
+  summarise(n_states = n())
 
 
 
