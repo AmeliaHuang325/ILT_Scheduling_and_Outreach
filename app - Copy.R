@@ -133,24 +133,28 @@ server <- function(input, output, session) {
     var_list
   })
   
+  # Gradient colors for the map based on n_course_state
+  colorpal <- colorNumeric(palette = "viridis", domain = us_spdf@data$n_course_state)
   
-  # add State: to actual state names
+  
+  # Add State: to actual state names
   mytext <- paste(
     "State: ", us_spdf@data$NAME,"<br/>",
     "Total Number of Trainings: ", us_spdf@data$n_course_state,"<br/>",
     sep="") %>%
     lapply(htmltools::HTML)
   
-  # leaflet map using US states shapefile downloaded online
+  # Leaflet map using US states shapefile downloaded online
   output$us_map <- renderLeaflet({
     leaflet(us_spdf) %>%
-      addTiles()  %>%
+      addTiles() %>%
       setView(lat=10, lng=0 , zoom=2) %>%
       addPolygons(
-        stroke=TRUE,
+        fillColor = ~colorpal(us_spdf@data$n_course_state),
+        stroke = TRUE,
         fillOpacity = 0.5,
-        color="white",
-        weight=0.3,
+        color = "white",
+        weight = 0.3,
         label = mytext,
         labelOptions = labelOptions(
           style = list("font-weight" = "normal", padding = "3px 8px"),
@@ -158,8 +162,13 @@ server <- function(input, output, session) {
           direction = "auto"
         )
       ) %>%
-      addPolylines(stroke=TRUE, weight = 2, color= "skyblue")
+      addPolylines(stroke = TRUE, weight = 2, color = "skyblue") %>%
+      addLegend(pal = colorpal, values = us_spdf@data$n_course_state,
+                title = "Number of Trainings",
+                position = "bottomright")
   })
+  
+  
   
   # add a leaflet proxy
   proxy <- leafletProxy("us_map")
