@@ -116,10 +116,8 @@ ui <- fluidPage(
     
     mainPanel(
       leafletOutput("us_map"), # output map
-      DTOutput('us_table') # output table
-      # fluidRow(column("",
-      #                 tableOutput("Table"), width = 12,
-      #                 align = "center"))
+      # DTOutput('us_table') # output table
+     
     )
   )
 )
@@ -133,24 +131,28 @@ server <- function(input, output, session) {
     var_list
   })
   
+  # Gradient colors for the map based on n_course_state
+  colorpal <- colorNumeric(palette = "viridis", domain = us_spdf@data$n_course_state)
   
-  # add State: to actual state names
+  
+  # Add State: to actual state names
   mytext <- paste(
     "State: ", us_spdf@data$NAME,"<br/>",
     "Total Number of Trainings: ", us_spdf@data$n_course_state,"<br/>",
     sep="") %>%
     lapply(htmltools::HTML)
   
-  # leaflet map using US states shapefile downloaded online
+  # Leaflet map using US states shapefile downloaded online
   output$us_map <- renderLeaflet({
     leaflet(us_spdf) %>%
-      addTiles()  %>%
+      addTiles() %>%
       setView(lat=10, lng=0 , zoom=2) %>%
       addPolygons(
-        stroke=TRUE,
+        fillColor = ~colorpal(us_spdf@data$n_course_state),
+        stroke = TRUE,
         fillOpacity = 0.5,
-        color="white",
-        weight=0.3,
+        color = "white",
+        weight = 0.3,
         label = mytext,
         labelOptions = labelOptions(
           style = list("font-weight" = "normal", padding = "3px 8px"),
@@ -158,8 +160,13 @@ server <- function(input, output, session) {
           direction = "auto"
         )
       ) %>%
-      addPolylines(stroke=TRUE, weight = 2, color= "skyblue")
+      addPolylines(stroke = TRUE, weight = 2, color = "skyblue") %>%
+      addLegend(pal = colorpal, values = us_spdf@data$n_course_state,
+                title = "Number of Trainings",
+                position = "bottomright")
   })
+  
+  
   
   # add a leaflet proxy
   proxy <- leafletProxy("us_map")
@@ -193,52 +200,7 @@ server <- function(input, output, session) {
     }
   }
   )
-  
-  # render table based on selections of states and categories
-  output$us_table <- renderDT(
-    {
-      
-      # get the input categories
-      x <- get_selected(input$tree, format = "slices") |> as.data.frame() |> names()
-      
-      # filter the dataset by input categories
-      dat_s <- dat |> filter(state %in% input$state,
-                             ncdp_categories %in% x[x %in% names(var_list)] | subcategory %in% x[!x %in% names(var_list)])
-      
-      # rename variables for printed table  
-      dat_print <- dat_s |> 
-        select(state_n, bill_number, summary, 
-               hazard_type, ncdp_categories_n, subcategory_n) |> 
-        rename(State = state_n, `Bill Number` = bill_number, `Summary` = summary, 
-               `Hazard Type` = hazard_type, `NCDP Categories` = ncdp_categories_n, 
-               `NCDP Subcategories` = subcategory_n)
-      
-      # render datatable
-      dtable <- datatable(dat_print,  
-                          rownames = FALSE, 
-                          escape = FALSE,
-                          options = list(
-                            rowsGroup = list(0,1,2,3,4),
-                            pageLength = 50,
-                            columnDefs = list(list(width = '100px', targets = 0)),
-                            language = list(lengthMenu = 
-                                              paste("Display _MENU_ Entries for", 
-                                                    length(unique(dat_print$`Bill Number`)), 
-                                                    "Bills across", 
-                                                    length(unique(dat_print$State)),
-                                                    "States",
-                                                    sep = " "))
-                          )) |> 
-        formatStyle(columns = c("State"), fontWeight = 'bold')
-      path <- here::here() # folder containing dataTables.rowsGroup.js
-      dep <- htmltools::htmlDependency(
-        "RowsGroup", "2.0.0", 
-        path, script = "dataTables.rowsGroup.js")
-      dtable$dependencies <- c(dtable$dependencies, list(dep))
-      dtable
-    }
-    
-  )
+
   
 }
 
