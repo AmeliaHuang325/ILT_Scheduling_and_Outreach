@@ -90,6 +90,10 @@ dat <- dat |>
                            paste0("REGION ", as.roman(region)),
                            NA))
 
+region_order <- c("REGION I", "REGION II", "REGION III", "REGION IV", "REGION V", 
+                  "REGION VI", "REGION VII", "REGION VIII", "REGION IX", "REGION X")
+
+
 # state and aggregated courses
 dat_agg <- dat %>%
   group_by(state) %>%
@@ -168,10 +172,10 @@ ui <- fluidPage(
                   #checkboxInput("all", "Select All/None", value = F),
                   
                   # choose state
-                  h4("Choose a state"),
-                  awesomeCheckboxGroup("state", 
+                  h4("Choose a course"),
+                  awesomeCheckboxGroup("course", 
                                        label = "",
-                                       choices = sort(unique(dat$state)),
+                                       choices = sort(unique(dat$training)),
                                        selected = NULL,
                                        inline = F)
            ),
@@ -180,7 +184,7 @@ ui <- fluidPage(
                   h4("Choose a region"),
                   awesomeCheckboxGroup("region", 
                                        label = "",
-                                       choices = sort(unique(region_spdf@data$REGION)),
+                                       choices = region_order,
                                        selected = NULL,
                                        inline = F))
     ),
@@ -269,6 +273,7 @@ server <- function(input, output, session) {
   # })
   
   
+  
   output$us_map <- renderLeaflet({
     
     map <- leaflet(us_spdf) %>%
@@ -292,40 +297,17 @@ server <- function(input, output, session) {
                 title = NULL,
                 position = "bottomright")
     
-    # Adjust the bounding box to zoom in more
-    adjust_bounds <- function(bounds, factor = 0.5) {
-      lng_center <- mean(c(bounds[1, 1], bounds[1, 2]))
-      lat_center <- mean(c(bounds[2, 1], bounds[2, 2]))
-      
-      lng1 <- bounds[1, 1] + (lng_center - bounds[1, 1]) * factor
-      lat1 <- bounds[2, 1] + (lat_center - bounds[2, 1]) * factor
-      lng2 <- bounds[1, 2] - (bounds[1, 2] - lng_center) * factor
-      lat2 <- bounds[2, 2] - (bounds[2, 2] - lat_center) * factor
-      
-      return(matrix(c(lng1, lat1, lng2, lat2), ncol = 2))
-    }
-    
-    # Zoom into selected states
-    if (!is.null(input$state) && length(input$state) > 0) {
-      subset_states <- us_spdf[us_spdf@data$NAME %in% input$state, ]
-      if (nrow(subset_states) > 0) {
-        bounds <- bbox(subset_states)
-        adjusted_bounds <- adjust_bounds(bounds)
-        map <- map %>% fitBounds(
-          lng1 = adjusted_bounds[1, 1], lat1 = adjusted_bounds[2, 1],
-          lng2 = adjusted_bounds[1, 2], lat2 = adjusted_bounds[2, 2]
-        )
-      }
-    } else if (!is.null(input$region) && length(input$region) > 0) {
+    # Zoom into selected regions
+    if (!is.null(input$region) && length(input$region) > 0) {
       subset_regions <- region_spdf[region_spdf@data$REGION %in% input$region, ]
       if (nrow(subset_regions) > 0) {
-        bounds <- bbox(subset_regions)
-        adjusted_bounds <- adjust_bounds(bounds)
-        map <- map %>% fitBounds(
-          lng1 = adjusted_bounds[1, 1], lat1 = adjusted_bounds[2, 1],
-          lng2 = adjusted_bounds[1, 2], lat2 = adjusted_bounds[2, 2]
-        )
         map <- map %>%
+          fitBounds(
+            lng1 = subset_regions@bbox[1, 1], 
+            lat1 = subset_regions@bbox[2, 1],
+            lng2 = subset_regions@bbox[1, 2], 
+            lat2 = subset_regions@bbox[2, 2]
+          ) %>%
           addPolygons(
             data = subset_regions,
             fillColor = "transparent",
@@ -339,22 +321,31 @@ server <- function(input, output, session) {
     return(map)
   })
   
+  
 
   output$course_bar_chart <- renderPlotly({
-
-
-      plot_data <- dat %>%
-        group_by(region_2, training) %>%
-        summarize(total_courses = sum(n_each_course_state)) %>%
-        ungroup()
-
-      plot_ly(data = plot_data,
-              x = ~region_2,
-              y = ~total_courses,
-              color = ~training,
-              type = "bar",
-              colors = RColorBrewer::brewer.pal(n=length(unique(dat$training)), name="Set1")) %>%
-        layout(barmode = "stack")
+    
+    plot_data <- dat %>%
+      group_by(region_2, training) %>%
+      summarize(total_courses = sum(n_each_course_state), .groups = "drop") %>%
+      mutate(region_2 = factor(region_2, levels = region_order)) %>%
+      arrange(match(region_2, region_order))
+    
+    # Get the number of unique trainings for color assignment
+    n_trainings <- length(unique(dat$training))
+    
+    # If there are more trainings than colors in the palette, repeat the palette
+    color_scale <- colorRampPalette(RColorBrewer::brewer.pal(min(9, n_trainings), "Pastel1"))(n_trainings)
+    
+    plot_ly(data = plot_data,
+            x = ~region_2,
+            y = ~total_courses,
+            color = ~training,
+            type = "bar",
+            colors = color_scale) %>%
+      layout(barmode = "stack",
+             colorway = color_scale)  # ensure that the colorway matches the colors for a consistent appearance
+    
 
   })
   
@@ -365,32 +356,32 @@ server <- function(input, output, session) {
   # interactive control of the map
   observe({
     
-    if(length(input$state) > 0){
+    if(length(input$course) > 0){
       
-      #get the selected polygon and extract the label point
-      selected_polygon <- subset(us_spdf, us_spdf$NAME %in% input$state)
+      # Filter states that have any of the selected courses in their training list
+      selected_polygons <- subset(us_spdf, sapply(training_list, function(x) {
+        any(stringr::str_detect(x, pattern = input$course))
+      }))
       
-      polygon_labelPt <- selected_polygon@polygons[[1]]@labpt
-      
-      #remove any previously highlighted polygon
+      # Remove any previously highlighted polygon
       proxy %>% clearGroup("highlighted_polygon")
       
-      #center the view on the polygon
-      proxy %>% setView(lng = polygon_labelPt[1],
-                        lat=polygon_labelPt[2],
-                        zoom = 4)
-      
-      #add a slightly thicker red polygon on top of the selected one
-      proxy %>% addPolylines(stroke=TRUE,
-                             weight = 4,
-                             color="red",
-                             data=selected_polygon,
-                             group="highlighted_polygon")
+      for (i in 1:nrow(selected_polygons)) {
+        selected_polygon <- selected_polygons[i, ]
+        polygon_labelPt <- selected_polygon@polygons[[1]]@labpt
+        
+        # Add a slightly thicker red polygon on top of each selected state
+        proxy %>% addPolylines(stroke=TRUE,
+                               weight = 2,
+                               color="red",
+                               data=selected_polygon,
+                               group="highlighted_polygon")
+      }
     } else {
       proxy %>% clearGroup("highlighted_polygon")
     }
-  }
-  )
+  })
+  
 
   
 }
