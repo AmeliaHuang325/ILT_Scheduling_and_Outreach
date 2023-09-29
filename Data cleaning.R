@@ -5,11 +5,13 @@ library(dplyr)
 library(tidyr)
 library(stringr)
 
-
 # Import google sheet data and get authorization --------------------------
 gs4_auth() # get authentication
+
 sheet <- read_sheet("https://docs.google.com/spreadsheets/d/1MJDXdoWOK-sEFnCqOtdVlbB0XcQGF32-8iGKS8UvmjE/edit") %>% 
   janitor::clean_names()
+
+
 
 # unlist all cells
 sheet_unlisted <- as.data.frame(sapply(sheet, function(col) {
