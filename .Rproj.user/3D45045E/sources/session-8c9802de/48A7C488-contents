@@ -226,19 +226,6 @@ server <- function(input, output, session) {
     ifelse(is.na(x), "#00000000", base_pal(x))
   }
   
-
-  
-  #merged_data <- merge(us_spdf@data, dat, by.x = "NAME", by.y = "state")
-  
-  # mytext <- mapply(function(name, courses, trainings) {
-  #   return(paste("State: ", name, "<br/>",
-  #                "Total Number of Trainings: ", courses, "<br/>",
-  #                "Trainings: ", trainings, "<br/>",
-  #                sep=""))
-  # }, merged_data$NAME, merged_data$n_course_state, merged_data$training_list) %>%
-  #   lapply(htmltools::HTML)
-  
-  
    
   # Add State: to actual state names
   mytext <- paste(
@@ -248,31 +235,6 @@ server <- function(input, output, session) {
     sep="") %>%
     lapply(htmltools::HTML)
 
-  # Leaflet map using US states shapefile downloaded online
-  # output$us_map <- renderLeaflet({
-  #   leaflet(us_spdf) %>%
-  #     addTiles() %>%
-  #     setView(lat=10, lng=0 , zoom=2) %>%
-  #     addPolygons(
-  #       fillColor = ~colorpal(us_spdf@data$n_course_state),
-  #       stroke = TRUE,
-  #       fillOpacity = 0.5,
-  #       color = "white",
-  #       weight = 0.3,
-  #       label = mytext,
-  #       labelOptions = labelOptions(
-  #         style = list("font-weight" = "normal", padding = "3px 8px"),
-  #         textsize = "13px",
-  #         direction = "auto"
-  #       )
-  #     ) %>%
-  #     addPolylines(stroke = TRUE, weight = 2, color = "skyblue") %>%
-  #     addLegend(pal = base_pal, values = us_spdf@data$n_course_state,
-  #               title = "Number of Trainings",
-  #               position = "bottomright")
-  # })
-  
-  
   
   output$us_map <- renderLeaflet({
     
@@ -295,31 +257,65 @@ server <- function(input, output, session) {
       addPolylines(stroke = TRUE, weight = 0.3, color = "grey") %>%
       addLegend(pal = base_pal, values = na.omit(us_spdf@data$n_course_state),
                 title = NULL,
-                position = "bottomright")
+                position = "bottomright") %>%
+      addPolygons(
+        data = region_spdf[region_spdf@data$REGION %in% input$region, ],
+        fillColor = "transparent",
+        stroke = TRUE,
+        color = "blue",
+        weight = 3)
     
     # Zoom into selected regions
-    if (!is.null(input$region) && length(input$region) > 0) {
-      subset_regions <- region_spdf[region_spdf@data$REGION %in% input$region, ]
-      if (nrow(subset_regions) > 0) {
-        map <- map %>%
-          fitBounds(
-            lng1 = subset_regions@bbox[1, 1], 
-            lat1 = subset_regions@bbox[2, 1],
-            lng2 = subset_regions@bbox[1, 2], 
-            lat2 = subset_regions@bbox[2, 2]
-          ) %>%
-          addPolygons(
-            data = subset_regions,
-            fillColor = "transparent",
-            stroke = TRUE,
-            color = "blue",
-            weight = 3
-          )
-      }
-    }
+    # if (!is.null(input$region) && length(input$region) > 0) {
+    #   subset_regions <- region_spdf[region_spdf@data$REGION %in% input$region, ]
+    #   if (nrow(subset_regions) > 0) {
+    #     map <- map %>%
+    #       fitBounds(
+    #         lng1 = subset_regions@bbox[1, 1], 
+    #         lat1 = subset_regions@bbox[2, 1],
+    #         lng2 = subset_regions@bbox[1, 2], 
+    #         lat2 = subset_regions@bbox[2, 2]
+    #       ) %>%
+    #       addPolygons(
+    #         data = subset_regions,
+    #         fillColor = "transparent",
+    #         stroke = TRUE,
+    #         color = "blue",
+    #         weight = 3
+    #       )
+    #   }
+    # }
     
     return(map)
   })
+  
+  
+  # bar chart without total number at top
+  # output$course_bar_chart <- renderPlotly({
+  #   
+  #   plot_data <- dat %>%
+  #     group_by(region_2, training) %>%
+  #     summarize(total_courses = sum(n_each_course_state), .groups = "drop") %>%
+  #     mutate(region_2 = factor(region_2, levels = region_order)) %>%
+  #     arrange(match(region_2, region_order))
+  #   
+  #   # Get the number of unique trainings for color assignment
+  #   n_trainings <- length(unique(dat$training))
+  #   
+  #   # If there are more trainings than colors in the palette, repeat the palette
+  #   color_scale <- colorRampPalette(RColorBrewer::brewer.pal(min(9, n_trainings), "Pastel1"))(n_trainings)
+  #   
+  #   plot_ly(data = plot_data,
+  #           x = ~region_2,
+  #           y = ~total_courses,
+  #           color = ~training,
+  #           type = "bar",
+  #           colors = color_scale) %>%
+  #     layout(barmode = "stack",
+  #            colorway = color_scale)  # ensure that the colorway matches the colors for a consistent appearance
+  #   
+  #   
+  # })
   
   
 
