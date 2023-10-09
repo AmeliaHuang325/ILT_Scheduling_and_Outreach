@@ -1,0 +1,201 @@
+"0","# Get all surveys ID
+surveys <- all_surveys() 
+# Get all surveys ID
+surveys <- all_surveys() 
+# fetch the post test data
+dat_post_test <- fetch_survey(surveyID = ""SV_3EPGXCnwX6kkNo2"",  
+                              verbose = TRUE,
+                              label = FALSE, 
+                              convert = FALSE, 
+                              force_request = TRUE) %>% 
+  janitor::clean_names()
+"
+"1","  |                                                                             "
+"1","  |                                                                       |   0%"
+"1","  |                                                                             "
+"1","  |=======================================================================| 100%"
+"1","
+"
+"2","
+[36m──[39m [1mColumn specification[22m [36m─────────────────────────────────────────────────────────[39m
+cols(
+  .default = col_double(),
+  StartDate = [34mcol_datetime(format = """")[39m,
+  EndDate = [34mcol_datetime(format = """")[39m,
+  IPAddress = [31mcol_character()[39m,
+  RecordedDate = [34mcol_datetime(format = """")[39m,
+  ResponseId = [31mcol_character()[39m,
+  RecipientLastName = [33mcol_logical()[39m,
+  RecipientFirstName = [33mcol_logical()[39m,
+  RecipientEmail = [33mcol_logical()[39m,
+  ExternalReference = [33mcol_logical()[39m,
+  DistributionChannel = [31mcol_character()[39m,
+  UserLanguage = [31mcol_character()[39m,
+  QID13 = [31mcol_character()[39m,
+  QID24 = [31mcol_character()[39m
+)
+[36mℹ[39m Use `spec()` for the full column specifications.
+"
+"0","# fetch the pre test data"
+"0","dat_pre_test <- fetch_survey(surveyID = ""SV_1zvXZxERYO2KBb8"", "
+"0","                             verbose = TRUE,"
+"0","                             label = FALSE, # TRUE to export survey responses as Choice Text or FALSE to export survey responses as values."
+"0","                             convert = FALSE, "
+"0","                             force_request = TRUE) %>% "
+"0","  janitor::clean_names()"
+"1","  |                                                                             "
+"1","  |                                                                       |   0%"
+"1","  |                                                                             "
+"1","  |=======================================================================| 100%"
+"1","
+"
+"2","
+[36m──[39m [1mColumn specification[22m [36m─────────────────────────────────────────────────────────[39m
+cols(
+  .default = col_double(),
+  StartDate = [34mcol_datetime(format = """")[39m,
+  EndDate = [34mcol_datetime(format = """")[39m,
+  IPAddress = [31mcol_character()[39m,
+  RecordedDate = [34mcol_datetime(format = """")[39m,
+  ResponseId = [31mcol_character()[39m,
+  RecipientLastName = [33mcol_logical()[39m,
+  RecipientFirstName = [33mcol_logical()[39m,
+  RecipientEmail = [33mcol_logical()[39m,
+  ExternalReference = [33mcol_logical()[39m,
+  DistributionChannel = [31mcol_character()[39m,
+  UserLanguage = [31mcol_character()[39m,
+  QID13 = [31mcol_character()[39m,
+  QID24 = [31mcol_character()[39m
+)
+[36mℹ[39m Use `spec()` for the full column specifications.
+"
+"0","PreTest <- dat_pre_test %>% "
+"0","  mutate_if(is.character, funs(na_if(., """"))) %>% # For each character column in the data frame, it will replace any empty strings with NA values."
+"0","  mutate(sc0 = as.numeric(sc0)) %>% "
+"0","  filter(sc0!= 0) %>%"
+"0","  drop_na(qid13) %>% # get rid of the blank results"
+"0","  group_by(qid13) %>% "
+"0","  filter(sc0 == min(sc0)) %>% "
+"0","  filter(row_number()==1) %>% "
+"0","  ungroup() %>%  # get rid of the same ppl's multiple result"
+"0","  group_by(qid24) %>% "
+"0","  filter(sc0 == min(sc0)) %>% "
+"0","  filter(row_number()==1) %>% "
+"0","  ungroup() %>%  # get rid of the same ppl's multiple result"
+"0","  filter(grepl(""@"", qid24)) %>% "
+"0","  #filter(!qid24 %in% c(""test@test.com"", ""heb2138@columbia.edu"")) %>%"
+"0","  filter(!tolower(qid13) %in% c(""jingjing"", ""test"", ""hannah""))"
+"2","Warning: `funs()` was deprecated in dplyr 0.8.0.
+Please use a list of either functions or lambdas: 
+
+  # Simple named list: 
+  list(mean = mean, median = median)
+
+  # Auto named with `tibble::lst()`: 
+  tibble::lst(mean, median)
+
+  # Using lambdas
+  list(~ mean(., trim = .2), ~ median(., na.rm = TRUE))"
+"0","PreTest <- dat_pre_test %>% "
+"0","  mutate_if(is.character, funs(na_if(., """"))) %>% # For each character column in the data frame, it will replace any empty strings with NA values."
+"0","  mutate(sc0 = as.numeric(sc0)) %>% "
+"0","  filter(sc0!= 0) %>%"
+"0","  drop_na(qid13) %>% # get rid of the blank results"
+"0","  group_by(qid13) %>% "
+"0","  filter(sc0 == min(sc0)) %>% "
+"0","  filter(row_number()==1) %>% "
+"0","  ungroup() %>%  # get rid of the same ppl's multiple result"
+"0","  group_by(qid24) %>% "
+"0","  filter(sc0 == min(sc0)) %>% "
+"0","  filter(row_number()==1) %>% "
+"0","  ungroup() %>%  # get rid of the same ppl's multiple result"
+"0","  filter(grepl(""@"", qid24)) %>% "
+"0","  #filter(!qid24 %in% c(""test@test.com"", ""heb2138@columbia.edu"")) %>%"
+"0","  filter(!tolower(qid13) %in% c(""jingjing"", ""test"", ""hannah""))"
+"2","Warning: `funs()` was deprecated in dplyr 0.8.0.
+Please use a list of either functions or lambdas: 
+
+  # Simple named list: 
+  list(mean = mean, median = median)
+
+  # Auto named with `tibble::lst()`: 
+  tibble::lst(mean, median)
+
+  # Using lambdas
+  list(~ mean(., trim = .2), ~ median(., na.rm = TRUE))"
+"0","PostTest <- dat_post_test %>% "
+"0","  mutate_if(is.character, funs(na_if(., """"))) %>% # For each character column in the data frame, it will replace any empty strings with NA values."
+"0","  mutate(sc0 = as.numeric(sc0)) %>% "
+"0","  filter(sc0!= 0) %>%"
+"0","  drop_na(qid13) %>% # get rid of the blank results"
+"0","  group_by(qid13) %>% "
+"0","  filter(sc0 == min(sc0)) %>% "
+"0","  filter(row_number()==1) %>% "
+"0","  ungroup() %>%  # get rid of the same ppl's multiple result"
+"0","  group_by(qid24) %>% "
+"0","  filter(sc0 == min(sc0)) %>% "
+"0","  filter(row_number()==1) %>% "
+"0","  ungroup() %>%  # get rid of the same ppl's multiple result"
+"0","  filter(grepl(""@"", qid24)) %>% "
+"0","  #filter(!qid24 %in% c(""test@test.com"", ""heb2138@columbia.edu"")) %>%"
+"0","  filter(!tolower(qid13) %in% c(""jingjing"", ""jingjing bao"", ""test""))"
+"2","Warning: `funs()` was deprecated in dplyr 0.8.0.
+Please use a list of either functions or lambdas: 
+
+  # Simple named list: 
+  list(mean = mean, median = median)
+
+  # Auto named with `tibble::lst()`: 
+  tibble::lst(mean, median)
+
+  # Using lambdas
+  list(~ mean(., trim = .2), ~ median(., na.rm = TRUE))"
+"0","Standard <- c(6,1,5,4,4,1,4,1,3,2)"
+"0","Standard <- c(6,1,5,4,4,1,4,1,3,2)"
+"0","dat_post_test_TF <- PostTest %>% select(q1:q10)"
+"0","for (i in 1:ncol(dat_post_test_TF)) {"
+"0","  dat_post_test_TF[,i] <- dat_post_test_TF[,i] == Standard[i]"
+"0","}"
+"0","dat_post_test_TF_s <- dat_post_test_TF %>% pivot_longer(cols = q1:q10, names_to = ""question"", values_to = ""post_test_answer"")"
+"0","dat_post_test_TF_s <- dat_post_test_TF_s %>% group_by(question) %>% "
+"0","  summarise(post_test_answer = 1-mean(post_test_answer))"
+"0","dat_post_test_TF_s <- dat_post_test_TF_s %>% "
+"0","  mutate(question = factor(question,"
+"0","                           levels = paste(""q"", 1:10, sep = """")))"
+"0","dat_pre_test_TF <- PreTest %>% select(q1:q10)"
+"0","for (i in 1:ncol(dat_pre_test_TF)) {"
+"0","  dat_pre_test_TF[,i] <- dat_pre_test_TF[,i] == Standard[i]"
+"0","}"
+"0","dat_pre_test_TF_s <- dat_pre_test_TF %>% pivot_longer(cols = q1:q10, names_to = ""question"", values_to = ""pre_test_answer"")"
+"0","dat_pre_test_TF_s <- dat_pre_test_TF_s %>% group_by(question) %>% "
+"0","  summarise(pre_test_answer = 1-mean(pre_test_answer))"
+"0","dat_pre_test_TF_s <- dat_pre_test_TF_s %>% "
+"0","  mutate(question = factor(question,"
+"0","                           levels = paste(""q"", 1:10, sep = """")))"
+"0","dat_pre_post_test <- dat_pre_test_TF_s %>% "
+"0","  left_join(dat_post_test_TF_s, by = ""question"")"
+"0","dat_pre_post_test <- dat_pre_post_test %>% "
+"0","  pivot_longer("
+"0","    cols = pre_test_answer:post_test_answer,"
+"0","    names_to = ""Test_type"","
+"0","    names_pattern = ""(.*)_answer$"","
+"0","    values_to = ""answer"""
+"0","  ) %>% "
+"0","  mutate(Test_type = factor(Test_type,"
+"0","                      levels = c(""pre_test"",""post_test"")))"
+"0","dat_pre_post_test <- dat_pre_post_test %>% "
+"0","  pivot_longer("
+"0","    cols = pre_test_answer:post_test_answer,"
+"0","    names_to = ""Test_type"","
+"0","    names_pattern = ""(.*)_answer$"","
+"0","    values_to = ""answer"""
+"0","  ) %>% "
+"0","  mutate(Test_type = factor(Test_type,"
+"0","                      levels = c(""pre_test"",""post_test"")))"
+"1","[1m[33mError[39m in `pivot_longer()`:[22m
+[33m![39m Can't subset columns that don't exist.
+[31m✖[39m Column `pre_test_answer` doesn't exist.
+Backtrace:
+[90m 1. [39m... %>% ...
+[90m 4. [39m[1m[94mtidyr:::pivot_longer.data.frame([39m[22m...[1m[94m)[39m[22m
+"
