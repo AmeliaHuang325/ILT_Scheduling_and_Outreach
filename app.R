@@ -5,70 +5,12 @@ library(RColorBrewer)
 library(shinyWidgets)
 library(plotly)
 library(dplyr)
-
-# Clean and Load data -----------------------------------------------------
-# Import google sheet data and get authorization --------------------------
-
-sheet <- read_csv("data/Instructor-led Trainings Scheduling & Outreach - Scheduling.csv") %>% 
-  janitor::clean_names()
+library(sf)
 
 
-# Select data needed ------------------------------------------------------
-
-col_index <- which(sheet[1, ] == "REMAINING")[1] # see where the word "remaining" is
-
-sheet_selected <- sheet %>%
-  select(1:(col_index-1)) %>%  # select needed columns
-  filter(row_number() < which(training == "TOTAL")[1]) #select needed rows
-
-## generate new column name based on the first row
-new_col_name <- sapply(1:ncol(sheet_selected), function(i) {
-  val <- sheet_selected[1,i]
-  
-  # Check for NA values
-  if (is.na(val)) {
-    return(names(sheet_selected)[i])
-  }
-  
-  # Check for numbers from 1 to 10
-  if (str_detect(val, "^([1-9]|10)$")) {
-    return(paste0("region ", val))
-  } else {
-    return(names(sheet_selected)[i])
-  }
-}) # if the row is number from 1-10 then use the number, otherwise copy the column name
-
-# Assign the new values to the first row
-
-colnames(sheet_selected) <- new_col_name
-
-# Generate a dataset for Dashboard ----------------------------------------
-
-df_plotting <- sheet_selected %>% 
-  slice(-1) %>% # remove the first row of the dataset
-  select("training", starts_with("region")) %>% # select training and region data
-  fill(!!names(sheet_selected)[1], .direction = "down") %>% #To fill NA values in the first column with the value from the row above
-  filter(str_detect(as.character(.[[1]]), "[0-9]"))
-
-
-df_s <- df_plotting %>% 
-  pivot_longer(cols = starts_with("region"),
-               names_to = "region",
-               values_to = "states"
-  )
-
-df_s <- df_s %>% 
-  select(training, states) %>% 
-  na.omit() %>% 
-  group_by(training, states) %>% 
-  summarise(n_each_course_state = n())
-
+source("Data_cleaning_2.R")
 
 # Load data ---------------------------------------------------------------
-
-
-#source(here::here("Data_Cleaning_csv.R")) # source the data from the cleaned app
-
 
 dat <- df_s |> 
   group_by(states) |>
@@ -99,33 +41,8 @@ dat_agg <- dat %>%
   group_by(state) %>%
   summarise(training_list = paste(training, collapse = ", "))
 
-# create a list for the course info
-
-# var_list <- list(
-#   Housing = structure(list(
-#     `MGT-477` = structure("MGT-477", stselected=FALSE, sttype="default", sticon="file"), 
-#     `MGT-472` = structure("MGT-472", stselected=FALSE, sttype="default", sticon="file")
-#   ), stselected=FALSE, sttype="default", sticon="file"),
-#   
-#   Mass_Care = structure(list(
-#     `MGT-487` = structure("MGT-487", stselected=FALSE, sttype="default", sticon="file"), 
-#     `PER-406` = structure("PER-406", stselected=FALSE, sttype="default", sticon="file")
-#   ), stselected=FALSE, sttype="default", sticon="file"),
-#   
-#   Pandemic_Preparedness = structure(list(
-#     `MGT-488` = structure("MGT-488", stselected=FALSE, sttype="default", sticon="file"), 
-#     `PER-409` = structure("PER-409", stselected=FALSE, sttype="default", sticon="file")
-#   ), stselected=FALSE, sttype="default", sticon="file"),
-#   
-#   Climate_Equity = structure(list(
-#     `MGT-491` = structure("MGT-491", stselected=FALSE, sttype="default", sticon="file"), 
-#     `PER-420` = structure("PER-420", stselected=FALSE, sttype="default", sticon="file")
-#   ), stselected=FALSE, sttype="default", sticon="file")
-# )
-
 
 # us map data
-
 
 us_spdf <- rgdal::readOGR(
   dsn= here::here("data/cb_2018_us_state_20m"),
@@ -146,16 +63,8 @@ us_spdf@data <- us_spdf@data |>
   )
 
 
-
-#merged_data <- left_join(us_spdf@data, dat_agg, by = c("NAME" = "state"))
-
-# FEMA region data
-region_spdf <- rgdal::readOGR(
-  dsn= here::here("data/fema_regions"),
-  verbose=FALSE
-)
-
-#region_spdf <- st_read("data/fema_regions")
+# us FEMA Region data
+region_spdf <- st_read("data/fema_regions_simplified")
 
 # User Interface ----------------------------------------------------------
 
@@ -168,23 +77,20 @@ ui <- fluidPage(
   fluidRow(
     column(4,
            column(6,
-                  
-                  #checkboxInput("all", "Select All/None", value = F),
-                  
+                  checkboxInput("all", "Select All/None", value = F),
                   # choose state
                   h4("Choose a course"),
-                  awesomeCheckboxGroup("course", 
+                  awesomeCheckboxGroup("course_2", 
                                        label = "",
                                        choices = sort(unique(dat$training)),
-                                       selected = NULL,
                                        inline = F)
            ),
 
            column(6,
-                  h4("Choose a region"),
-                  awesomeCheckboxGroup("region", 
+                  h4("Choose a course"),
+                  awesomeCheckboxGroup("course", 
                                        label = "",
-                                       choices = region_order,
+                                       choices = sort(unique(dat$training)),
                                        selected = NULL,
                                        inline = F))
     ),
@@ -197,14 +103,9 @@ ui <- fluidPage(
   )
 )
 
-
 # Server Logic ------------------------------------------------------------
 
 server <- function(input, output, session) {
-  
-  # output$tree <- renderTree({
-  #   var_list
-  # })
   
   # Gradient colors for the map based on n_course_state
   
@@ -257,65 +158,41 @@ server <- function(input, output, session) {
       addPolylines(stroke = TRUE, weight = 0.3, color = "grey") %>%
       addLegend(pal = base_pal, values = na.omit(us_spdf@data$n_course_state),
                 title = NULL,
-                position = "bottomright") %>%
-      addPolygons(
-        data = region_spdf[region_spdf@data$REGION %in% input$region, ],
-        fillColor = "transparent",
-        stroke = TRUE,
-        color = "blue",
-        weight = 3)
+                position = "bottomright")%>%
+    addPolygons(
+      data = region_spdf,
+      fillColor = "transparent",
+      stroke = TRUE,
+      color = "blue",
+      opacity = 0.5,
+      weight = 1)
     
-    # Zoom into selected regions
-    # if (!is.null(input$region) && length(input$region) > 0) {
-    #   subset_regions <- region_spdf[region_spdf@data$REGION %in% input$region, ]
-    #   if (nrow(subset_regions) > 0) {
-    #     map <- map %>%
-    #       fitBounds(
-    #         lng1 = subset_regions@bbox[1, 1], 
-    #         lat1 = subset_regions@bbox[2, 1],
-    #         lng2 = subset_regions@bbox[1, 2], 
-    #         lat2 = subset_regions@bbox[2, 2]
-    #       ) %>%
-    #       addPolygons(
-    #         data = subset_regions,
-    #         fillColor = "transparent",
-    #         stroke = TRUE,
-    #         color = "blue",
-    #         weight = 3
-    #       )
-    #   }
-    # }
+    # Add custom labels without markers or icons
+    locations <- data.frame(
+      label = c("REGION I", "REGION II", "REGION III", "REGION IV", "REGION V", 
+                "REGION VI", "REGION VII", "REGION VIII", "REGION IX", "REGION X"),
+      lat = c(44.3601, 42.7128, 39.0458, 32.7465, 40.0000,
+              32.7465, 40.0000, 45.5760, 37.7783, 45.5760),
+      lng = c(-68.0589, -73.5006, -75.6413, -82.6868, -84.6812,
+              -102.2896, -99.5018, -108.2903, -121.5542, -121.5542)
+    )
+    
+    for (i in 1:nrow(locations)) {
+      label <- locations$label[i]
+      lat <- locations$lat[i]
+      lng <- locations$lng[i]
+      
+      # Add labels for other locations without markers or icons (transparent circle)
+      map <- addCircleMarkers(map, lat = lat, lng = lng, radius = 0, color = "transparent",
+                              fillOpacity = 0,
+                              label = list(
+                                htmltools::HTML(sprintf("<span style='font-size: 12px; color: black;'>%s</span>", label))
+                              ),
+                              labelOptions = labelOptions(noHide = TRUE, textOnly = TRUE))
+    }
     
     return(map)
   })
-  
-  
-  # bar chart without total number at top
-  # output$course_bar_chart <- renderPlotly({
-  #   
-  #   plot_data <- dat %>%
-  #     group_by(region_2, training) %>%
-  #     summarize(total_courses = sum(n_each_course_state), .groups = "drop") %>%
-  #     mutate(region_2 = factor(region_2, levels = region_order)) %>%
-  #     arrange(match(region_2, region_order))
-  #   
-  #   # Get the number of unique trainings for color assignment
-  #   n_trainings <- length(unique(dat$training))
-  #   
-  #   # If there are more trainings than colors in the palette, repeat the palette
-  #   color_scale <- colorRampPalette(RColorBrewer::brewer.pal(min(9, n_trainings), "Pastel1"))(n_trainings)
-  #   
-  #   plot_ly(data = plot_data,
-  #           x = ~region_2,
-  #           y = ~total_courses,
-  #           color = ~training,
-  #           type = "bar",
-  #           colors = color_scale) %>%
-  #     layout(barmode = "stack",
-  #            colorway = color_scale)  # ensure that the colorway matches the colors for a consistent appearance
-  #   
-  #   
-  # })
   
   
 
@@ -365,9 +242,6 @@ server <- function(input, output, session) {
     
   })
   
-  
-  
-  
   # add a leaflet proxy
   proxy <- leafletProxy("us_map")
   
@@ -399,9 +273,6 @@ server <- function(input, output, session) {
       proxy %>% clearGroup("highlighted_polygon")
     }
   })
-  
-
-  
 }
 
 
