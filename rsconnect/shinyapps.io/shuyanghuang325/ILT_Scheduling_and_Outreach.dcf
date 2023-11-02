@@ -5,9 +5,9 @@ account: shuyanghuang325
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 9972129
-bundleId: 7862321
+bundleId: 7883165
 url: https://shuyanghuang325.shinyapps.io/ILT_Scheduling_and_Outreach/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: .gitattributes|.RData|Data cleaning.R|Data_cleaning_csv.R|Simplify_shapefiles.R|data_archive
+ignoredFiles: .gitattributes|.RData|Data cleaning.R|Data_cleaning_csv.R|Simplify_shapefiles.R
