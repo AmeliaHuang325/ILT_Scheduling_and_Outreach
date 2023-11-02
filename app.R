@@ -6,6 +6,7 @@ library(shinyWidgets)
 library(plotly)
 library(dplyr)
 library(sf)
+library(bslib)
 
 
 source("Data_cleaning_2.R")
@@ -45,7 +46,7 @@ dat_agg <- dat %>%
 # us map data
 
 us_spdf <- rgdal::readOGR(
-  dsn= here::here("data/cb_2018_us_state_20m"),
+  dsn= here::here("data/us_states_simplified"),
   verbose=FALSE
 )
 
@@ -66,9 +67,21 @@ us_spdf@data <- us_spdf@data |>
 # us FEMA Region data
 region_spdf <- st_read("data/fema_regions_simplified")
 
+# us CNMI shapefile
+
+cnmi_spdf <- st_read("data/commonwealth_of_the_northern_mariana_islands")
+
 # User Interface ----------------------------------------------------------
 
 ui <- fluidPage(
+  
+  # Using custom CSS to set heights based on the viewport height
+  tags$head(
+    tags$style(HTML("
+      .top-section { height: 50vh; } /* 50% of the viewport height */
+      .bottom-section { height: 50vh; } /* 50% of the viewport height */
+    "))
+  ),
   
   # title
   titlePanel("ILT Scheduling & Outreach Tracking (active courses)"),
@@ -76,28 +89,24 @@ ui <- fluidPage(
   # input panel
   fluidRow(
     column(4,
+           div(class = "top-section",      
+           h4("Choose a course"),
+           awesomeCheckboxGroup("course", 
+                                label = "",
+                                choices = sort(unique(dat$training)),
+                                selected = NULL,
+                                inline = F)),
+           
+           div(class = "bottom-section",
            column(6,
-                  checkboxInput("all", "Select All/None", value = F),
-                  # choose state
-                  h4("Choose a course"),
-                  awesomeCheckboxGroup("course_2", 
-                                       label = "",
-                                       choices = sort(unique(dat$training)),
-                                       inline = F)
-           ),
-
-           column(6,
-                  h4("Choose a course"),
-                  awesomeCheckboxGroup("course", 
-                                       label = "",
-                                       choices = sort(unique(dat$training)),
-                                       selected = NULL,
-                                       inline = F))
-    ),
+                  leafletOutput("cnmi_map", height = "300px")),
+           column(4,
+                  p("NOTE: We held an MGT472 in Commonwealth of the Northern Mariana Islands"))
+           )),
     
     mainPanel(
-      leafletOutput("us_map"), # output map
-      plotlyOutput("course_bar_chart") # output bar chart
+      div(class = "top-section", leafletOutput("us_map")), # output map
+      div(class = "buttom-section", plotlyOutput("course_bar_chart")) # output bar chart
      
     )
   )
@@ -136,6 +145,24 @@ server <- function(input, output, session) {
     sep="") %>%
     lapply(htmltools::HTML)
 
+  
+  output$cnmi_map <- renderLeaflet({
+    
+    map <- leaflet(cnmi_spdf) %>%
+      addProviderTiles(providers$CartoDB.PositronNoLabels) %>%
+      setView(lat = 15.0979, lng = 145.6739, zoom = 7) %>%
+      addPolygons(
+        fillColor = "transparent",
+        stroke = TRUE,
+        color = "blue",
+        opacity = 0.1,
+        weight = 1)
+    
+    return(map)
+  })
+  
+  
+  
   
   output$us_map <- renderLeaflet({
     
